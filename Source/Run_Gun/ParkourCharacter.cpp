@@ -1,191 +1,206 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
+// ParkourCharacter.cpp
 
 #include "ParkourCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/InputComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "Camera/CameraComponent.h"
+#include "Components/CapsuleComponent.h"
 
-// Sets default values
 AParkourCharacter::AParkourCharacter()
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
+	FirstPersonCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
+	FirstPersonCameraComponent->SetupAttachment(GetCapsuleComponent());
+	FirstPersonCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, 64.f));
+	FirstPersonCameraComponent->bUsePawnControlRotation = true;
 }
 
-// Called when the game starts or when spawned
 void AParkourCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-    // Сохраняем стандартное значение трения при старте игры
-    if (GetCharacterMovement())
-    {
-        DefaultGroundFriction = GetCharacterMovement()->GroundFriction;
-        DefaultMaxWalkSpeedCrouched = GetCharacterMovement()->MaxWalkSpeedCrouched;
-    }
+
+	if (GetCharacterMovement())
+	{
+		DefaultGroundFriction = GetCharacterMovement()->GroundFriction;
+		DefaultMaxWalkSpeedCrouched = GetCharacterMovement()->MaxWalkSpeedCrouched;
+	}
 }
+
+// --- Логика Рывка (Dash) ---
 
 void AParkourCharacter::Dash()
 {
-    // Проверяем, можем ли мы сделать рывок. Если нет (bCanDash == false), выходим из функции.
-    if (!bCanDash)
-    {
-        return;
-    }
+	if (!bCanDash) return;
 
-    // Сразу же запрещаем делать рывок снова, чтобы избежать спама
-    bCanDash = false;
+	bCanDash = false;
+	UCharacterMovementComponent* MovementComp = GetCharacterMovement();
+	if (!MovementComp) return;
 
-    // Получаем ссылку на компонент движения, он нам понадобится несколько раз
-    UCharacterMovementComponent* MovementComp = GetCharacterMovement();
-    if (!MovementComp)
-    {
-        return; // Если компонента нет, ничего не делаем
-    }
+	FVector DashDirection = MovementComp->GetLastInputVector().GetSafeNormal();
+	if (DashDirection.IsNearlyZero())
+	{
+		DashDirection = GetActorForwardVector();
+	}
 
-    FVector DashDirection = MovementComp->GetLastInputVector().GetSafeNormal();
+	MovementComp->GroundFriction = 0.0f;
+	LaunchCharacter(DashDirection * DashForce, true, true);
 
-    // Если игрок не нажимает никаких кнопок, делаем рывок просто вперед
-    if (DashDirection.IsNearlyZero())
-    {
-        DashDirection = GetActorForwardVector();
-    }
-
-    // Устанавливаем трение в 0, чтобы рывок был мощным на земле
-    MovementComp->GroundFriction = 0.0f;
-
-    // "Запускаем" персонажа. Используем Launch, так как он лучше работает с физикой, чем прямая установка Velocity.
-    // Галочки true, true означают XY Override и Z Override, полностью заменяя текущую скорость.
-    LaunchCharacter(DashDirection * DashForce, true, true);
-
-    // Запускаем таймер, который по окончании кулдауна вызовет нашу функцию ResetDash
-    GetWorld()->GetTimerManager().SetTimer(DashCooldownTimerHandle, this, &AParkourCharacter::ResetDash, DashCooldown);
+	GetWorld()->GetTimerManager().SetTimer(DashCooldownTimerHandle, this, &AParkourCharacter::ResetDash, DashCooldown);
 }
 
 void AParkourCharacter::ResetDash()
 {
-    // Разрешаем делать рывок снова
-    bCanDash = true;
-
-    // Возвращаем трение к стандартному значению
-    UCharacterMovementComponent* MovementComp = GetCharacterMovement();
-    if (MovementComp)
-    {
-        MovementComp->GroundFriction = 8.0f; // 8.0 - это стандартное значение
-    }
+	bCanDash = true;
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->GroundFriction = DefaultGroundFriction;
+	}
 }
 
-void AParkourCharacter::StartSlide()
-{
-    // Получаем текущую скорость только в горизонтальной плоскости (без учета падения)
-    const float GroundSpeed = FVector(GetVelocity().X, GetVelocity().Y, 0).Size();
-
-    // Проверяем, на земле ли мы и достаточно ли быстро бежим
-    if (GetCharacterMovement()->IsMovingOnGround() && GroundSpeed >= MinSpeedForSlide)
-    {
-        bIsSliding = true;
-
-        // 1. Временно увеличиваем максимальную скорость в приседе
-        GetCharacterMovement()->MaxWalkSpeedCrouched = GroundSpeed * SlideSpeedMultiplier;
-
-        // 2. Устанавливаем низкое трение для гладкого скольжения.
-        GetCharacterMovement()->GroundFriction = SlideFriction;
-
-        // 3. Теперь безопасно вызываем Crouch().
-        Crouch();
-    }
-    else
-    {
-        // Если скорость недостаточная, просто приседаем без скольжения
-        Crouch();
-    }
-}
-
-void AParkourCharacter::StopSlide()
-{
-    // Если мы скользили, возвращаем стандартное трение
-    if (bIsSliding)
-    {
-        bIsSliding = false;
-        GetCharacterMovement()->GroundFriction = DefaultGroundFriction;
-        GetCharacterMovement()->MaxWalkSpeedCrouched = DefaultMaxWalkSpeedCrouched;
-    }
-
-    // Встаем
-    UnCrouch();
-}
+// --- Логика Прыжка (Jump) ---
 
 void AParkourCharacter::Jump()
 {
-    
-    Super::Jump();
-
-    if (GetCharacterMovement()->IsFalling() && ExtraJumpsAvailable > 0)
-    {
-        // Уменьшаем счетчик доступных прыжков
-        ExtraJumpsAvailable--;
-
-        // "Запускаем" персонажа строго вверх. 
-        LaunchCharacter(FVector(0.f, 0.f, GetCharacterMovement()->JumpZVelocity), false, true);
-    }
+	Super::Jump();
+	if (GetCharacterMovement() && GetCharacterMovement()->IsFalling() && ExtraJumpsAvailable > 0)
+	{
+		ExtraJumpsAvailable--;
+		LaunchCharacter(FVector(0.f, 0.f, GetCharacterMovement()->JumpZVelocity), false, true);
+	}
 }
 
 void AParkourCharacter::Landed(const FHitResult& Hit)
 {
-    // Сначала вызываем родительскую функцию Landed на случай, если в ней есть важная логика.
-    Super::Landed(Hit);
-
-    // Восстанавливаем наши дополнительные прыжки до максимального значения.
-    ExtraJumpsAvailable = MaxExtraJumps;
+	Super::Landed(Hit);
+	ExtraJumpsAvailable = MaxExtraJumps;
 }
 
 void AParkourCharacter::AddExtraJump()
 {
-    // Увеличиваем максимальное количество прыжков
-    MaxExtraJumps++;
-
-    // Сразу же обновляем и текущие доступные прыжки, чтобы игрок мог использовать его немедленно
-    ExtraJumpsAvailable = MaxExtraJumps;
+	MaxExtraJumps++;
+	ExtraJumpsAvailable = MaxExtraJumps;
 }
 
-// Called every frame
+// --- Логика Скольжения (Slide) ---
+
+void AParkourCharacter::StartSlide()
+{
+	const float GroundSpeed = FVector(GetVelocity().X, GetVelocity().Y, 0).Size();
+	if (GetCharacterMovement() && GetCharacterMovement()->IsMovingOnGround() && GroundSpeed >= MinSpeedForSlide)
+	{
+		bIsSliding = true;
+		Crouch();
+		GetCharacterMovement()->GroundFriction = SlideMinFriction;
+		GetCharacterMovement()->MaxWalkSpeedCrouched = GroundSpeed * SlideSpeedMultiplier;
+	}
+	else
+	{
+		Crouch();
+	}
+}
+
+void AParkourCharacter::StopSlide()
+{
+	bIsSliding = false;
+	UnCrouch();
+
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->GroundFriction = DefaultGroundFriction;
+		GetCharacterMovement()->MaxWalkSpeedCrouched = DefaultMaxWalkSpeedCrouched;
+	}
+}
+
+// --- Логика, выполняющаяся каждый кадр (Tick) ---
+
 void AParkourCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	UCharacterMovementComponent* MovementComp = GetCharacterMovement();
+	if (!MovementComp) return;
+
+	if (bIsSliding)
+	{
+		MovementComp->MaxWalkSpeedCrouched = FMath::FInterpTo(
+			MovementComp->MaxWalkSpeedCrouched,
+			DefaultMaxWalkSpeedCrouched,
+			DeltaTime,
+			SlideSpeedInterpSpeed
+		);
+		MovementComp->GroundFriction = FMath::FInterpTo(
+			MovementComp->GroundFriction,
+			SlideMaxFriction,
+			DeltaTime,
+			SlideFrictionInterpSpeed
+		);
+
+		const float GroundSpeed = FVector(GetVelocity().X, GetVelocity().Y, 0).Size();
+		if (GroundSpeed < DefaultMaxWalkSpeedCrouched + 50.f)
+		{
+			bIsSliding = false;
+		}
+	}
+	else if (!bIsSliding && MovementComp->IsCrouching())
+	{
+		MovementComp->GroundFriction = DefaultGroundFriction;
+		MovementComp->MaxWalkSpeedCrouched = DefaultMaxWalkSpeedCrouched;
+	}
+
+	// --- ЛОГИКА ПЕРЕМЕЩЕНИЯ КАМЕРЫ ---
+	if (FirstPersonCameraComponent)
+	{
+		const FVector TargetLocation = MovementComp->IsCrouching() ? CrouchingCameraLocation : StandingCameraLocation;
+		const FVector NewLocation = FMath::VInterpTo(
+			FirstPersonCameraComponent->GetRelativeLocation(),
+			TargetLocation,
+			DeltaTime,
+			CameraInterpSpeed
+		);
+		FirstPersonCameraComponent->SetRelativeLocation(NewLocation);
+	}
+
+	// --- ОТЛАДКА ---
+	if (GEngine)
+	{
+		const FString DebugMessage = FString::Printf(
+			TEXT("Speed: %.0f | IsSliding: %s | Friction: %.2f | MaxCrouchSpeed: %.0f"),
+			FVector(GetVelocity().X, GetVelocity().Y, 0).Size(),
+			bIsSliding ? TEXT("true") : TEXT("false"),
+			MovementComp->GroundFriction,
+			MovementComp->MaxWalkSpeedCrouched
+		);
+		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Yellow, DebugMessage);
+	}
 }
 
-// Called to bind functionality to input
+// --- Привязка Ввода (Input) ---
+
 void AParkourCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-    if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
-    {
-        // Проверяем, что наши переменные-ссылки на ассеты были установлены в Блюпринте
-        if (JumpAction)
-        {
-            EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
-            EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
-        }
-
-        if (DashAction)
-        {
-            // Привязываем DashAction к нашей C++ функции Dash
-            EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Started, this, &AParkourCharacter::Dash);
-        }
-
-        if (AddJumpAction)
-        {
-            // Привязываем AddJumpAction к нашей C++ функции AddExtraJump
-            EnhancedInputComponent->BindAction(AddJumpAction, ETriggerEvent::Started, this, &AParkourCharacter::AddExtraJump);
-        }
-        if (SlideAction)
-        {
-            // При нажатии кнопки вызываем StartSlide, при отпускании - StopSlide
-            EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Started, this, &AParkourCharacter::StartSlide);
-            EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Completed, this, &AParkourCharacter::StopSlide);
-        }
-    }
+	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
+	{
+		if (JumpAction)
+		{
+			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
+			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		}
+		if (DashAction)
+		{
+			EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Started, this, &AParkourCharacter::Dash);
+		}
+		if (AddJumpAction)
+		{
+			EnhancedInputComponent->BindAction(AddJumpAction, ETriggerEvent::Started, this, &AParkourCharacter::AddExtraJump);
+		}
+		if (SlideAction)
+		{
+			EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Started, this, &AParkourCharacter::StartSlide);
+			EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Completed, this, &AParkourCharacter::StopSlide);
+		}
+	}
 }

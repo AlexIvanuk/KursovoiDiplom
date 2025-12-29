@@ -5,92 +5,102 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputAction.h"
+#include "Camera/CameraComponent.h"
 #include "ParkourCharacter.generated.h"
 
 UCLASS()
 class RUN_GUN_API AParkourCharacter : public ACharacter
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    AParkourCharacter();
+	AParkourCharacter();
+
+	// --- КОМПОНЕНТ КАМЕРЫ ---
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
+	UCameraComponent* FirstPersonCameraComponent;
 
 protected:
-    // Called when the game starts or when spawned
-    virtual void BeginPlay() override;
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
 
-    // Сила, с которой будет произведен рывок
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Dash")
-    float DashForce = 1500.0f;
+	// --- ПЕРЕМЕННЫЕ ДЛЯ СИСТЕМЫ ВВОДА ---
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* JumpAction;
 
-    // Время в секундах, которое рывок будет на перезарядке
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Dash")
-    float DashCooldown = 0.7f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* DashAction;
 
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-    UInputAction* DashAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* SlideAction;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Jumping")
-    int32 MaxExtraJumps = 0;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* AddJumpAction;
 
-    UPROPERTY(BlueprintReadOnly, Category = "Jumping")
-    int32 ExtraJumpsAvailable = 0;
+	// --- ПЕРЕМЕННЫЕ ДЛЯ РЫВКА ---
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Dash")
+	float DashForce = 1500.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-    UInputAction* JumpAction;
-    
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-    UInputAction* SlideAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Dash")
+	float DashCooldown = 0.7f;
 
-    // Минимальная скорость на земле, чтобы начать скольжение, а не просто присесть
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
-    float MinSpeedForSlide = 600.0f;
+	// --- ПЕРЕМЕННЫЕ ДЛЯ ПРЫЖКА ---
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Jumping")
+	int32 MaxExtraJumps = 0;
 
-    // Множитель скорости в начале скольжения (чтобы был небольшой буст)
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
-    float SlideSpeedMultiplier = 1.2f;
+	UPROPERTY(BlueprintReadOnly, Category = "Jumping")
+	int32 ExtraJumpsAvailable = 0;
 
-    // Сила трения во время скольжения (чем выше, тем быстрее персонаж остановится)
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
-    float SlideFriction = 2.0f;
+	// --- ПЕРЕМЕННЫЕ ДЛЯ СКОЛЬЖЕНИЯ ---
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
+	float MinSpeedForSlide = 600.0f;
 
-    // --- ФУНКЦИИ ДЛЯ СКОЛЬЖЕНИЯ ---
-    void StartSlide();
-    void StopSlide();
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
+	float SlideSpeedMultiplier = 1.5f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-    UInputAction* AddJumpAction;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
+	float SlideMinFriction = 0.1f;
 
-    UFUNCTION(BlueprintCallable, Category = "Dash")
-    void Dash();
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
+	float SlideMaxFriction = 8.0f;
 
-    void ResetDash();
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
+	float SlideSpeedInterpSpeed = 2.0f;
 
-    virtual void Jump() override;
-    virtual void Landed(const FHitResult& Hit) override;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
+	float SlideFrictionInterpSpeed = 5.0f;
 
-    // Функция для тестовой кнопки "P", чтобы добавлять прыжки
-    UFUNCTION(BlueprintCallable, Category = "Jumping")
-    void AddExtraJump();
+	// --- ПЕРЕМЕННЫЕ ДЛЯ КАМЕРЫ ---
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
+	FVector StandingCameraLocation = FVector(0.f, 0.f, 64.f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
+	FVector CrouchingCameraLocation = FVector(0.f, 0.f, 30.f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
+	float CameraInterpSpeed = 10.0f;
+
+	// --- ФУНКЦИИ МЕХАНИК ---
+	void Dash();
+	void ResetDash();
+
+	virtual void Jump() override;
+	virtual void Landed(const FHitResult& Hit) override;
+	void AddExtraJump();
+
+	void StartSlide();
+	void StopSlide();
 
 private:
-    // "Флаг", который показывает, можем ли мы делать рывок
-    bool bCanDash = true;
+	bool bCanDash = true;
+	bool bIsSliding = false;
 
-    // "Флаг", который показывает, скользим ли мы сейчас
-    bool bIsSliding = false;
+	float DefaultGroundFriction;
+	float DefaultMaxWalkSpeedCrouched;
 
-    // Здесь мы сохраним стандартное значение трения, чтобы вернуть его после скольжения
-    float DefaultGroundFriction;
-    float DefaultMaxWalkSpeedCrouched;
-
-    // Ссылка на таймер, чтобы могли им управлять
-    FTimerHandle DashCooldownTimerHandle;
+	FTimerHandle DashCooldownTimerHandle;
 
 public:
-    // Called every frame
-    virtual void Tick(float DeltaTime) override;
-
-    // Called to bind functionality to input
-    virtual void SetupPlayerInputComponent(class UInputComponent * PlayerInputComponent) override;
+	virtual void Tick(float DeltaTime) override;
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 };
