@@ -30,24 +30,19 @@ void AParkourCharacter::BeginPlay()
 }
 
 // --- Логика Рывка (Dash) ---
-
 void AParkourCharacter::Dash()
 {
 	if (!bCanDash) return;
-
 	bCanDash = false;
 	UCharacterMovementComponent* MovementComp = GetCharacterMovement();
 	if (!MovementComp) return;
-
 	FVector DashDirection = MovementComp->GetLastInputVector().GetSafeNormal();
 	if (DashDirection.IsNearlyZero())
 	{
 		DashDirection = GetActorForwardVector();
 	}
-
 	MovementComp->GroundFriction = 0.0f;
 	LaunchCharacter(DashDirection * DashForce, true, true);
-
 	GetWorld()->GetTimerManager().SetTimer(DashCooldownTimerHandle, this, &AParkourCharacter::ResetDash, DashCooldown);
 }
 
@@ -61,7 +56,6 @@ void AParkourCharacter::ResetDash()
 }
 
 // --- Логика Прыжка (Jump) ---
-
 void AParkourCharacter::Jump()
 {
 	Super::Jump();
@@ -88,30 +82,31 @@ void AParkourCharacter::AddExtraJump()
 
 void AParkourCharacter::StartSlide()
 {
+	// --- НОВАЯ, УЛУЧШЕННАЯ ЛОГИКА ---
+	UCharacterMovementComponent* MovementComp = GetCharacterMovement();
+	if (!MovementComp) return;
+
 	const float GroundSpeed = FVector(GetVelocity().X, GetVelocity().Y, 0).Size();
-	if (GetCharacterMovement() && GetCharacterMovement()->IsMovingOnGround() && GroundSpeed >= MinSpeedForSlide)
+
+	// Проверяем условия для скольжения ПРЯМО СЕЙЧАС, в момент нажатия
+	if (MovementComp->IsMovingOnGround() && GroundSpeed >= MinSpeedForSlide)
 	{
-		bIsSliding = true;
-		Crouch();
-		GetCharacterMovement()->GroundFriction = SlideMinFriction;
-		GetCharacterMovement()->MaxWalkSpeedCrouched = GroundSpeed * SlideSpeedMultiplier;
+		bIsSliding = true; // Сразу взводим флаг скольжения
+
+		// Применяем параметры скольжения немедленно
+		MovementComp->GroundFriction = SlideMinFriction;
+		MovementComp->MaxWalkSpeedCrouched = GroundSpeed * SlideSpeedMultiplier;
 	}
-	else
-	{
-		Crouch();
-	}
+
+	// И в любом случае, сообщаем движку о нашем желании присесть.
+	// Если условия для скольжения не выполнились, это будет простое приседание.
+	MovementComp->bWantsToCrouch = true;
 }
 
 void AParkourCharacter::StopSlide()
 {
-	bIsSliding = false;
-	UnCrouch();
-
-	if (GetCharacterMovement())
-	{
-		GetCharacterMovement()->GroundFriction = DefaultGroundFriction;
-		GetCharacterMovement()->MaxWalkSpeedCrouched = DefaultMaxWalkSpeedCrouched;
-	}
+	// А эта - о "желании" встать
+	GetCharacterMovement()->bWantsToCrouch = false;
 }
 
 // --- Логика, выполняющаяся каждый кадр (Tick) ---
@@ -125,27 +120,22 @@ void AParkourCharacter::Tick(float DeltaTime)
 
 	if (bIsSliding)
 	{
-		MovementComp->MaxWalkSpeedCrouched = FMath::FInterpTo(
-			MovementComp->MaxWalkSpeedCrouched,
-			DefaultMaxWalkSpeedCrouched,
-			DeltaTime,
-			SlideSpeedInterpSpeed
-		);
-		MovementComp->GroundFriction = FMath::FInterpTo(
-			MovementComp->GroundFriction,
-			SlideMaxFriction,
-			DeltaTime,
-			SlideFrictionInterpSpeed
-		);
+		// Плавное замедление во время скольжения
+		MovementComp->MaxWalkSpeedCrouched = FMath::FInterpTo(MovementComp->MaxWalkSpeedCrouched, DefaultMaxWalkSpeedCrouched, DeltaTime, SlideSpeedInterpSpeed);
+		MovementComp->GroundFriction = FMath::FInterpTo(MovementComp->GroundFriction, SlideMaxFriction, DeltaTime, SlideFrictionInterpSpeed);
 
 		const float GroundSpeed = FVector(GetVelocity().X, GetVelocity().Y, 0).Size();
-		if (GroundSpeed < DefaultMaxWalkSpeedCrouched + 50.f)
+		// Условия для прекращения скольжения: скорость упала или мы больше не на земле
+		if (GroundSpeed < DefaultMaxWalkSpeedCrouched + 50.f || !MovementComp->IsMovingOnGround())
 		{
 			bIsSliding = false;
 		}
 	}
-	else if (!bIsSliding && MovementComp->IsCrouching())
+
+	// Если мы НЕ скользим (просто присели или скольжение закончилось), но все еще сидим
+	if (!bIsSliding && MovementComp->IsCrouching())
 	{
+		// Возвращаем стандартные параметры приседания
 		MovementComp->GroundFriction = DefaultGroundFriction;
 		MovementComp->MaxWalkSpeedCrouched = DefaultMaxWalkSpeedCrouched;
 	}
@@ -154,12 +144,7 @@ void AParkourCharacter::Tick(float DeltaTime)
 	if (FirstPersonCameraComponent)
 	{
 		const FVector TargetLocation = MovementComp->IsCrouching() ? CrouchingCameraLocation : StandingCameraLocation;
-		const FVector NewLocation = FMath::VInterpTo(
-			FirstPersonCameraComponent->GetRelativeLocation(),
-			TargetLocation,
-			DeltaTime,
-			CameraInterpSpeed
-		);
+		const FVector NewLocation = FMath::VInterpTo(FirstPersonCameraComponent->GetRelativeLocation(), TargetLocation, DeltaTime, CameraInterpSpeed);
 		FirstPersonCameraComponent->SetRelativeLocation(NewLocation);
 	}
 
@@ -167,11 +152,12 @@ void AParkourCharacter::Tick(float DeltaTime)
 	if (GEngine)
 	{
 		const FString DebugMessage = FString::Printf(
-			TEXT("Speed: %.0f | IsSliding: %s | Friction: %.2f | MaxCrouchSpeed: %.0f"),
+			TEXT("Speed: %.0f | IsSliding: %s | WantsToCrouch: %s | WantsToCrouch(in): %s | IsCrouching: %s"),
 			FVector(GetVelocity().X, GetVelocity().Y, 0).Size(),
 			bIsSliding ? TEXT("true") : TEXT("false"),
-			MovementComp->GroundFriction,
-			MovementComp->MaxWalkSpeedCrouched
+			bWantsToCrouch ? TEXT("true") : TEXT("false"),
+			MovementComp->bWantsToCrouch ? TEXT("true") : TEXT("false"),
+			MovementComp->IsCrouching() ? TEXT("true") : TEXT("false")
 		);
 		GEngine->AddOnScreenDebugMessage(-1, 0.0f, FColor::Yellow, DebugMessage);
 	}

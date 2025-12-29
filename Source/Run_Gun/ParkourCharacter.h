@@ -94,6 +94,7 @@ protected:
 private:
 	bool bCanDash = true;
 	bool bIsSliding = false;
+	bool bWantsToCrouch = false; // <-- ÍÎÂÀß ÏÅÐÅÌÅÍÍÀß
 
 	float DefaultGroundFriction;
 	float DefaultMaxWalkSpeedCrouched;
