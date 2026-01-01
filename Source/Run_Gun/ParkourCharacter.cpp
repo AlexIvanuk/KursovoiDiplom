@@ -13,8 +13,8 @@ AParkourCharacter::AParkourCharacter()
 	PrimaryActorTick.bCanEverTick = true;
 
 	FirstPersonCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
-	FirstPersonCameraComponent->SetupAttachment(GetCapsuleComponent());
-	FirstPersonCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, 64.f));
+	FirstPersonCameraComponent->SetupAttachment(GetMesh());
+	FirstPersonCameraComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, TEXT("CameraSocket"));
 	FirstPersonCameraComponent->bUsePawnControlRotation = true;
 }
 
@@ -107,6 +107,7 @@ void AParkourCharacter::StopSlide()
 {
 	// А эта - о "желании" встать
 	GetCharacterMovement()->bWantsToCrouch = false;
+	bIsSliding = false;
 }
 
 // --- Логика, выполняющаяся каждый кадр (Tick) ---
@@ -138,14 +139,6 @@ void AParkourCharacter::Tick(float DeltaTime)
 		// Возвращаем стандартные параметры приседания
 		MovementComp->GroundFriction = DefaultGroundFriction;
 		MovementComp->MaxWalkSpeedCrouched = DefaultMaxWalkSpeedCrouched;
-	}
-
-	// --- ЛОГИКА ПЕРЕМЕЩЕНИЯ КАМЕРЫ ---
-	if (FirstPersonCameraComponent)
-	{
-		const FVector TargetLocation = MovementComp->IsCrouching() ? CrouchingCameraLocation : StandingCameraLocation;
-		const FVector NewLocation = FMath::VInterpTo(FirstPersonCameraComponent->GetRelativeLocation(), TargetLocation, DeltaTime, CameraInterpSpeed);
-		FirstPersonCameraComponent->SetRelativeLocation(NewLocation);
 	}
 
 	// --- ОТЛАДКА ---
@@ -189,4 +182,9 @@ void AParkourCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 			EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Completed, this, &AParkourCharacter::StopSlide);
 		}
 	}
+}
+
+bool AParkourCharacter::IsSliding() const
+{
+	return bIsSliding;
 }

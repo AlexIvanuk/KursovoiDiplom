@@ -20,6 +20,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCameraComponent* FirstPersonCameraComponent;
 
+	UFUNCTION(BlueprintPure, Category = "Sliding")
+	bool IsSliding() const;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -94,7 +97,7 @@ protected:
 private:
 	bool bCanDash = true;
 	bool bIsSliding = false;
-	bool bWantsToCrouch = false; // <-- ÍÎÂÀß ÏÅÐÅÌÅÍÍÀß
+	bool bWantsToCrouch = false; 
 
 	float DefaultGroundFriction;
 	float DefaultMaxWalkSpeedCrouched;
