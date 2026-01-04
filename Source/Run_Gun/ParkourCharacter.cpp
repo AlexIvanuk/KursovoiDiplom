@@ -16,6 +16,7 @@ AParkourCharacter::AParkourCharacter()
 	FirstPersonCameraComponent->SetupAttachment(GetMesh());
 	FirstPersonCameraComponent->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, TEXT("CameraSocket"));
 	FirstPersonCameraComponent->bUsePawnControlRotation = true;
+	
 }
 
 void AParkourCharacter::BeginPlay()
@@ -96,6 +97,10 @@ void AParkourCharacter::StartSlide()
 		// Применяем параметры скольжения немедленно
 		MovementComp->GroundFriction = SlideMinFriction;
 		MovementComp->MaxWalkSpeedCrouched = GroundSpeed * SlideSpeedMultiplier;
+		if (SlideMontage)
+		{
+			PlayAnimMontage(SlideMontage);
+		}
 	}
 
 	// И в любом случае, сообщаем движку о нашем желании присесть.
@@ -107,7 +112,10 @@ void AParkourCharacter::StopSlide()
 {
 	// А эта - о "желании" встать
 	GetCharacterMovement()->bWantsToCrouch = false;
-	bIsSliding = false;
+	if (bIsSliding)
+	{
+		StopAnimMontage(SlideMontage);
+	}
 }
 
 // --- Логика, выполняющаяся каждый кадр (Tick) ---
@@ -137,6 +145,14 @@ void AParkourCharacter::Tick(float DeltaTime)
 	if (!bIsSliding && MovementComp->IsCrouching())
 	{
 		// Возвращаем стандартные параметры приседания
+		MovementComp->GroundFriction = DefaultGroundFriction;
+		MovementComp->MaxWalkSpeedCrouched = DefaultMaxWalkSpeedCrouched;
+	}
+
+	// Если мы скользили, но теперь встали (UnCrouch сработал)
+	if (bIsSliding && !MovementComp->IsCrouching())
+	{
+		bIsSliding = false;
 		MovementComp->GroundFriction = DefaultGroundFriction;
 		MovementComp->MaxWalkSpeedCrouched = DefaultMaxWalkSpeedCrouched;
 	}

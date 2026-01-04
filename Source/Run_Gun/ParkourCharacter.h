@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "InputAction.h"
 #include "Camera/CameraComponent.h"
+#include "Animation/AnimMontage.h"
 #include "ParkourCharacter.generated.h"
 
 UCLASS()
@@ -72,6 +73,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
 	float SlideFrictionInterpSpeed = 5.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
+	UAnimMontage* SlideMontage;
 
 	// --- оепелеммше дкъ йюлепш ---
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
