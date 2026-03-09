@@ -5,9 +5,13 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "InputAction.h"
-#include "Camera/CameraComponent.h"
-#include "Animation/AnimMontage.h"
 #include "ParkourCharacter.generated.h"
+
+// Предварительные объявления классов (Forward Declarations)
+// Это ускоряет компиляцию и избегает циклических зависимостей
+class UCameraComponent;
+class UParkourMovementComponent;
+class UParkourSettings;
 
 UCLASS()
 class RUN_GUN_API AParkourCharacter : public ACharacter
@@ -17,18 +21,32 @@ class RUN_GUN_API AParkourCharacter : public ACharacter
 public:
 	AParkourCharacter();
 
-	// --- КОМПОНЕНТ КАМЕРЫ ---
+	// --- КОМПОНЕНТЫ ---
+
+	// Камера от первого лица
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCameraComponent* FirstPersonCameraComponent;
 
-	UFUNCTION(BlueprintPure, Category = "Sliding")
+	// Наш новый модульный компонент паркура
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UParkourMovementComponent* ParkourComp;
+
+	// --- ГЕТТЕРЫ ДЛЯ АНИМАЦИИ ---
+
+	// Оставляем эту функцию для удобства работы Анимационного Блюпринта
+	UFUNCTION(BlueprintPure, Category = "Parkour")
 	bool IsSliding() const;
 
 protected:
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-	// --- ПЕРЕМЕННЫЕ ДЛЯ СИСТЕМЫ ВВОДА ---
+	// --- НАСТРОЙКИ (DATA ASSET) ---
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Settings")
+	UParkourSettings* ParkourData;
+
+	// --- СИСТЕМА ВВОДА (INPUT ACTIONS) ---
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* JumpAction;
 
@@ -41,74 +59,20 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* AddJumpAction;
 
-	// --- ПЕРЕМЕННЫЕ ДЛЯ РЫВКА ---
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Dash")
-	float DashForce = 1500.0f;
+	// --- ОБРАБОТЧИКИ ВВОДА ---
+	// Эти функции вызываются при нажатии кнопок и просто передают приказ в компонент
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Dash")
-	float DashCooldown = 0.7f;
+	void Input_Jump();
+	void Input_StopJumping();
+	void Input_Dash();
+	void Input_SlideStart();
+	void Input_SlideStop();
+	void Input_AddJump();
 
-	// --- ПЕРЕМЕННЫЕ ДЛЯ ПРЫЖКА ---
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Jumping")
-	int32 MaxExtraJumps = 0;
-
-	UPROPERTY(BlueprintReadOnly, Category = "Jumping")
-	int32 ExtraJumpsAvailable = 0;
-
-	// --- ПЕРЕМЕННЫЕ ДЛЯ СКОЛЬЖЕНИЯ ---
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
-	float MinSpeedForSlide = 600.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
-	float SlideSpeedMultiplier = 1.5f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
-	float SlideMinFriction = 0.1f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
-	float SlideMaxFriction = 8.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
-	float SlideSpeedInterpSpeed = 2.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
-	float SlideFrictionInterpSpeed = 5.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sliding")
-	UAnimMontage* SlideMontage;
-
-	// --- ПЕРЕМЕННЫЕ ДЛЯ КАМЕРЫ ---
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
-	FVector StandingCameraLocation = FVector(0.f, 0.f, 64.f);
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
-	FVector CrouchingCameraLocation = FVector(0.f, 0.f, 30.f);
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
-	float CameraInterpSpeed = 10.0f;
-
-	// --- ФУНКЦИИ МЕХАНИК ---
-	void Dash();
-	void ResetDash();
-
-	virtual void Jump() override;
+	// Переопределение приземления для сброса прыжков в компоненте
 	virtual void Landed(const FHitResult& Hit) override;
-	void AddExtraJump();
-
-	void StartSlide();
-	void StopSlide();
-
-private:
-	bool bCanDash = true;
-	bool bIsSliding = false;
-	bool bWantsToCrouch = false; 
-
-	float DefaultGroundFriction;
-	float DefaultMaxWalkSpeedCrouched;
-
-	FTimerHandle DashCooldownTimerHandle;
 
 public:
-	virtual void Tick(float DeltaTime) override;
+	// Настройка привязок кнопок
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 };
