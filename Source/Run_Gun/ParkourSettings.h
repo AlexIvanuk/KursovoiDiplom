@@ -21,6 +21,9 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Dash")
 	float DashCooldown = 0.7f;
 
+	UPROPERTY(EditAnywhere, Category = "Dash")
+	float DashDuration = 0.2f;
+
 	// --- Õ¿—“–Œ… » — ŒÀ‹∆≈Õ»ﬂ ---
 	UPROPERTY(EditAnywhere, Category = "Sliding")
 	float MinSpeedForSlide = 600.0f;

@@ -7,8 +7,7 @@
 #include "InputAction.h"
 #include "ParkourCharacter.generated.h"
 
-// Предварительные объявления классов (Forward Declarations)
-// Это ускоряет компиляцию и избегает циклических зависимостей
+// Предварительные объявления классов (ускоряют компиляцию)
 class UCameraComponent;
 class UParkourMovementComponent;
 class UParkourSettings;
@@ -22,31 +21,26 @@ public:
 	AParkourCharacter();
 
 	// --- КОМПОНЕНТЫ ---
-
-	// Камера от первого лица
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
 	UCameraComponent* FirstPersonCameraComponent;
 
-	// Наш новый модульный компонент паркура
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UParkourMovementComponent* ParkourComp;
 
-	// --- ГЕТТЕРЫ ДЛЯ АНИМАЦИИ ---
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class UCombatComponent* CombatComp;
 
-	// Оставляем эту функцию для удобства работы Анимационного Блюпринта
-	UFUNCTION(BlueprintPure, Category = "Parkour")
-	bool IsSliding() const;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class UHealthComponent* HealthComp;
 
 protected:
 	virtual void BeginPlay() override;
 
 	// --- НАСТРОЙКИ (DATA ASSET) ---
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Settings")
 	UParkourSettings* ParkourData;
 
-	// --- СИСТЕМА ВВОДА (INPUT ACTIONS) ---
-
+	// --- СИСТЕМА ВВОДА ---
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* JumpAction;
 
@@ -59,20 +53,18 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* AddJumpAction;
 
-	// --- ОБРАБОТЧИКИ ВВОДА ---
-	// Эти функции вызываются при нажатии кнопок и просто передают приказ в компонент
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputAction* FireAction;
 
-	void Input_Jump();
-	void Input_StopJumping();
-	void Input_Dash();
-	void Input_SlideStart();
-	void Input_SlideStop();
-	void Input_AddJump();
-
-	// Переопределение приземления для сброса прыжков в компоненте
+	// --- СОБЫТИЯ ДВИЖКА ---
 	virtual void Landed(const FHitResult& Hit) override;
 
 public:
-	// Настройка привязок кнопок
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	// Геттер для Анимационного Блюпринта (теперь берет данные из компонента)
+	UFUNCTION(BlueprintPure, Category = "Movement")
+	bool IsCharacterSliding() const;
+
+	void Input_Fire();
 };

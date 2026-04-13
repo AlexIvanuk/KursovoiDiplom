@@ -1,4 +1,3 @@
-// ParkourMovementComponent.h
 #pragma once
 
 #include "CoreMinimal.h"
@@ -6,7 +5,6 @@
 #include "ParkourSettings.h"
 #include "ParkourMovementComponent.generated.h"
 
-// Переносим Enum сюда, так как это часть системы паркура
 UENUM(BlueprintType)
 enum class EParkourState : uint8
 {
@@ -24,39 +22,38 @@ class RUN_GUN_API UParkourMovementComponent : public UActorComponent
 public:
 	UParkourMovementComponent();
 
-	// Инициализация (связываем с персонажем)
+	// Связь с внешним миром
 	void Initialize(class ACharacter* InOwner, UParkourSettings* InSettings);
 
-	// Публичные команды
-	void Dash();
-	void StartSlide();
-	void StopSlide();
+	// Команды от игрока
+	void RequestDash();
+	void RequestSlideStart();
+	void RequestSlideStop();
 	void RequestJump();
+
+	// События от движка
 	void HandleLanded();
 	void AddExtraJump();
 
-	// Геттеры для АнимБП
+	// Геттер для АнимБП
 	UFUNCTION(BlueprintPure, Category = "Parkour")
 	bool IsSliding() const { return CurrentState == EParkourState::Sliding; }
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Parkour")
-	EParkourState CurrentState = EParkourState::Default;
-
 protected:
+	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
-	// Ссылки на владельца
-	UPROPERTY()
-	class ACharacter* CharacterOwner;
+	// Централизованная смена состояний
+	void SetState(EParkourState NewState);
 
-	UPROPERTY()
-	class UCharacterMovementComponent* MoveComp;
-
-	UPROPERTY()
-	UParkourSettings* Settings;
+	// Ссылки
+	UPROPERTY() class ACharacter* CharacterOwner;
+	UPROPERTY() class UCharacterMovementComponent* MoveComp;
+	UPROPERTY() UParkourSettings* Settings;
 
 	// Внутренние переменные
+	EParkourState CurrentState = EParkourState::Default;
 	int32 MaxExtraJumps = 0;
 	int32 ExtraJumpsAvailable = 0;
 	bool bCanDash = true;
@@ -64,6 +61,10 @@ private:
 	float DefaultGroundFriction;
 	float DefaultMaxWalkSpeedCrouched;
 
+	// Таймеры
 	FTimerHandle DashCooldownTimerHandle;
-	void ResetDash();
+	FTimerHandle DashDurationTimerHandle;
+
+	void StopDashing();
+	void ResetDashCooldown();
 };

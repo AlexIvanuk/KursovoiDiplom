@@ -1,7 +1,7 @@
-// ParkourCharacter.cpp
-
 #include "ParkourCharacter.h"
 #include "ParkourMovementComponent.h"
+#include "CombatComponent.h"
+#include "HealthComponent.h"
 #include "ParkourSettings.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -10,74 +10,33 @@
 
 AParkourCharacter::AParkourCharacter()
 {
-	// Персонажу больше не нужно тикать самому, так как логика теперь в компоненте
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
-	// 1. Создаем компонент паркура
+	// Создаем компонент паркура
 	ParkourComp = CreateDefaultSubobject<UParkourMovementComponent>(TEXT("ParkourComp"));
 
-	// 2. Настраиваем камеру (прикрепляем к голове)
+	// Создаем боевой компонент
+	CombatComp = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComp"));
+	
+	// Создаем компонент здоровья
+	HealthComp = CreateDefaultSubobject<UHealthComponent>(TEXT("HealthComp"));
+
+	// Настраиваем камеру (прикрепляем к сокету головы меша)
 	FirstPersonCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
 	FirstPersonCameraComponent->SetupAttachment(GetMesh(), TEXT("CameraSocket"));
 	FirstPersonCameraComponent->bUsePawnControlRotation = true;
-
-	// Принудительная настройка видимости меша (как мы делали раньше)
-	GetMesh()->SetOwnerNoSee(false);
-	GetMesh()->SetOnlyOwnerSee(true);
 }
 
 void AParkourCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Инициализируем компонент: даем ему ссылку на нас и на ассет настроек
+	// Инициализируем компонент, передавая ему ссылку на себя и на настройки
 	if (ParkourComp)
 	{
 		ParkourComp->Initialize(this, ParkourData);
 	}
 }
-
-// --- ОБРАБОТКА ВВОДА (ПРОБРОС КОМАНД В КОМПОНЕНТ) ---
-
-void AParkourCharacter::Input_Jump()
-{
-	if (ParkourComp) ParkourComp->RequestJump();
-}
-
-void AParkourCharacter::Input_Dash()
-{
-	if (ParkourComp) ParkourComp->Dash();
-}
-
-void AParkourCharacter::Input_SlideStart()
-{
-	if (ParkourComp) ParkourComp->StartSlide();
-}
-
-void AParkourCharacter::Input_SlideStop()
-{
-	if (ParkourComp) ParkourComp->StopSlide();
-}
-
-void AParkourCharacter::Input_AddJump()
-{
-	if (ParkourComp) ParkourComp->AddExtraJump();
-}
-
-// Переопределение приземления: сообщаем компоненту, что мы на земле
-void AParkourCharacter::Landed(const FHitResult& Hit)
-{
-	Super::Landed(Hit);
-	if (ParkourComp) ParkourComp->HandleLanded();
-}
-
-// Геттер для анимаций (теперь берет данные из компонента)
-bool AParkourCharacter::IsSliding() const
-{
-	return ParkourComp ? ParkourComp->IsSliding() : false;
-}
-
-// --- ПРИВЯЗКА ВВОДА ---
 
 void AParkourCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -88,27 +47,59 @@ void AParkourCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 		// Прыжок
 		if (JumpAction)
 		{
-			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AParkourCharacter::Input_Jump);
+			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, ParkourComp, &UParkourMovementComponent::RequestJump);
 			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 		}
 
-		// Рывок
+		// Рывок (Dash)
 		if (DashAction)
 		{
-			EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Started, this, &AParkourCharacter::Input_Dash);
+			EnhancedInputComponent->BindAction(DashAction, ETriggerEvent::Started, ParkourComp, &UParkourMovementComponent::RequestDash);
 		}
 
-		// Скольжение
+		// Скольжение (Slide)
 		if (SlideAction)
 		{
-			EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Started, this, &AParkourCharacter::Input_SlideStart);
-			EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Completed, this, &AParkourCharacter::Input_SlideStop);
+			EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Started, ParkourComp, &UParkourMovementComponent::RequestSlideStart);
+			EnhancedInputComponent->BindAction(SlideAction, ETriggerEvent::Completed, ParkourComp, &UParkourMovementComponent::RequestSlideStop);
 		}
 
-		// Добавление прыжка (тестовая кнопка P)
+		// Доп. прыжок (тестовая кнопка P)
 		if (AddJumpAction)
 		{
-			EnhancedInputComponent->BindAction(AddJumpAction, ETriggerEvent::Started, this, &AParkourCharacter::Input_AddJump);
+			EnhancedInputComponent->BindAction(AddJumpAction, ETriggerEvent::Started, ParkourComp, &UParkourMovementComponent::AddExtraJump);
 		}
+
+		if (FireAction)
+		{
+			EnhancedInputComponent->BindAction(FireAction, ETriggerEvent::Started, this, &AParkourCharacter::Input_Fire);
+		}
+	}
+}
+
+void AParkourCharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+
+	// Уведомляем компонент о приземлении
+	if (ParkourComp)
+	{
+		ParkourComp->HandleLanded();
+	}
+}
+
+bool AParkourCharacter::IsCharacterSliding() const
+{
+	return ParkourComp ? ParkourComp->IsSliding() : false;
+}
+
+void AParkourCharacter::Input_Fire()
+{
+	if (CombatComp && FirstPersonCameraComponent)
+	{
+		CombatComp->Fire(
+			FirstPersonCameraComponent->GetComponentLocation(),
+			FirstPersonCameraComponent->GetForwardVector()
+		);
 	}
 }
