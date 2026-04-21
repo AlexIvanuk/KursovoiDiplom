@@ -27,6 +27,21 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Generation")
     bool bDebugDraw = true;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Connectors")
+    FString EntranceComponentName = TEXT("Entrance");
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Connectors")
+    FString ExitComponentName = TEXT("Exit");
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Branching")
+    int32 MaxBranches = 3;  // ћаксимум веток от одной комнаты
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Branching")
+    float BranchChance = 0.4f;  // 40% шанс создать ветку
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Branching")
+    int32 MaxDepth = 5;  // ћаксимальна€ глубина ветвлени€
+
 private:
     AActor* SpawnRoom(TSubclassOf<AActor> RoomClass, const FTransform& Transform);
     FTransform CalculateSpawnTransform(AActor* PreviousRoom, TSubclassOf<AActor> NewRoomClass);
@@ -40,6 +55,16 @@ private:
     UFUNCTION(BlueprintCallable, Category = "Generation")
     void ClearLevel();
 
-private:
+    FTimerHandle GenerationTimerHandle;
+    int32 CurrentGenerationStep;
+    TQueue<AActor*> GenerationQueue;
+
+    void ProcessNextRoom();
+
     TArray<AActor*> SpawnedRooms;
+    void DebugLog(const FString& Message, FColor Color = FColor::White, float Duration = 5.0f);
+
+    TArray<FTransform> GetAllExits(AActor* Room);
+
+    bool DoesOverlapWithAnyRoom(const FTransform& Transform, TSubclassOf<AActor> RoomClass);
 };
