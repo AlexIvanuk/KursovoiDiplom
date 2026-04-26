@@ -66,5 +66,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Movement")
 	bool IsCharacterSliding() const;
 
+	UFUNCTION(BlueprintPure, Category = "Movement")
+	bool IsCharacterCrouching() const;
+
 	void Input_Fire();
 };

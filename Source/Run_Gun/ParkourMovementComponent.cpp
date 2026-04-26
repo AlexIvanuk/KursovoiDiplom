@@ -37,9 +37,10 @@ void UParkourMovementComponent::SetState(EParkourState NewState)
 	switch (CurrentState)
 	{
 	case EParkourState::Sliding:
-		if (Settings->SlideMontage) CharacterOwner->StopAnimMontage(Settings->SlideMontage);
+		if (Settings && Settings->SlideMontage) CharacterOwner->StopAnimMontage(Settings->SlideMontage);
 		break;
-	case EParkourState::Dashing:
+	case EParkourState::Crouching:
+		/*if (Settings && Settings->CrouchMontage) CharacterOwner->StopAnimMontage(Settings->CrouchMontage);*/
 		break;
 	default: break;
 	}
@@ -50,7 +51,19 @@ void UParkourMovementComponent::SetState(EParkourState NewState)
 	switch (CurrentState)
 	{
 	case EParkourState::Default:
+		// Восстанавливаем параметры при возврате в Default
+		if (MoveComp) {
+			MoveComp->GroundFriction = DefaultGroundFriction;
+			MoveComp->MaxWalkSpeedCrouched = DefaultMaxWalkSpeedCrouched;
+		}
+		break;
+
 	case EParkourState::Crouching:
+		/*if (Settings && Settings->CrouchMontage && CharacterOwner)
+		{
+			CharacterOwner->PlayAnimMontage(Settings->CrouchMontage);
+		}*/
+		// Тоже восстанавливаем параметры при входе в Crouching
 		if (MoveComp) {
 			MoveComp->GroundFriction = DefaultGroundFriction;
 			MoveComp->MaxWalkSpeedCrouched = DefaultMaxWalkSpeedCrouched;
@@ -58,10 +71,14 @@ void UParkourMovementComponent::SetState(EParkourState NewState)
 		break;
 
 	case EParkourState::Sliding:
+		if (Settings && Settings->SlideMontage && CharacterOwner)
+		{
+			CharacterOwner->PlayAnimMontage(Settings->SlideMontage);
+		}
+		// Для Sliding параметры устанавливаются в RequestSlideStart
 		break;
 
-	case EParkourState::Dashing:
-		break;
+	default: break;
 	}
 }
 

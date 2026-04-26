@@ -93,6 +93,11 @@ bool AParkourCharacter::IsCharacterSliding() const
 	return ParkourComp ? ParkourComp->IsSliding() : false;
 }
 
+bool AParkourCharacter::IsCharacterCrouching() const
+{
+	return ParkourComp ? ParkourComp->IsCrouching() : false;
+}
+
 void AParkourCharacter::Input_Fire()
 {
 	if (CombatComp && FirstPersonCameraComponent)

@@ -45,4 +45,7 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Sliding")
 	UAnimMontage* SlideMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Crouching")
+	UAnimMontage* CrouchMontage;
 };

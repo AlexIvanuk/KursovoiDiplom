@@ -39,6 +39,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Parkour")
 	bool IsSliding() const { return CurrentState == EParkourState::Sliding; }
 
+	UFUNCTION(BlueprintPure, Category = "Parkour")
+	bool IsCrouching() const { return CurrentState == EParkourState::Crouching; }
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
