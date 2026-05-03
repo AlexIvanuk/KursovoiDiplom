@@ -4,8 +4,10 @@
 #include "Components/ActorComponent.h"
 #include "HealthComponent.generated.h"
 
-// Создаем событие смерти, которое будет видно в Блюпринтах
+// Событие смерти
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDeathSignature);
+// Событие получения урона
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHealthChangedSignature, float, CurrentHealth, float, MaxHealth);
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class RUN_GUN_API UHealthComponent : public UActorComponent
@@ -23,6 +25,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Health")
 	FOnDeathSignature OnDeath;
+
+	UPROPERTY(BlueprintAssignable, Category = "Health")
+	FOnHealthChangedSignature OnHealthChanged;
 
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	void TakeDamage(float DamageAmount);
