@@ -33,6 +33,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class UHealthComponent* HealthComp;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	class UArtifactComponent* ArtifactComp;
+
 protected:
 	virtual void BeginPlay() override;
 

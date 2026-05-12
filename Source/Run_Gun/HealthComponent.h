@@ -32,6 +32,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	void TakeDamage(float DamageAmount);
 
+	UFUNCTION(BlueprintCallable, Category = "Health")
+	void RestoreFullHealth();
+
 protected:
 	virtual void BeginPlay() override;
 };

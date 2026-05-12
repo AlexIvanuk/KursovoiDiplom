@@ -371,7 +371,7 @@ bool AParkourLevelGenerator::DoesOverlapWithAnyRoom(const FTransform& Transform,
                 FBoxSphereBounds ExistingBounds = ExistingPrim->Bounds;
 
                 // Простая проверка на пересечение bounding box с учётом поворота
-                if (TempBounds.GetBox().Intersect(ExistingBounds.GetBox()))
+                if (TempBounds.GetBox().ExpandBy(-1.0f).Intersect(ExistingBounds.GetBox().ExpandBy(-1.0f)))
                 {
                     bOverlaps = true;
                     DebugLog(FString::Printf(TEXT("OVERLAP! %s vs %s"),

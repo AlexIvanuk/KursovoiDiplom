@@ -21,3 +21,10 @@ void UHealthComponent::TakeDamage(float DamageAmount)
 		OnDeath.Broadcast(); // Âûחûגאול סמבûעטו סלונעט
 	}
 }
+
+void UHealthComponent::RestoreFullHealth()
+{
+	CurrentHealth = MaxHealth;
+
+	OnHealthChanged.Broadcast(CurrentHealth, MaxHealth);
+}

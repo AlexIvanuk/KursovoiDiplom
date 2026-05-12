@@ -3,6 +3,7 @@
 #include "CombatComponent.h"
 #include "HealthComponent.h"
 #include "ParkourSettings.h"
+#include "ArtifactComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "EnhancedInputComponent.h"
@@ -20,6 +21,9 @@ AParkourCharacter::AParkourCharacter()
 	
 	// Создаем компонент здоровья
 	HealthComp = CreateDefaultSubobject<UHealthComponent>(TEXT("HealthComp"));
+	
+	// Создаем компонент артефактов
+	ArtifactComp = CreateDefaultSubobject<UArtifactComponent>(TEXT("ArtifactComp"));
 
 	// Настраиваем камеру (прикрепляем к сокету головы меша)
 	FirstPersonCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));

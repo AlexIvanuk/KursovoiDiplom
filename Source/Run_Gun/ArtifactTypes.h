@@ -57,3 +57,45 @@ struct FArtifactRow : public FTableRowBase {
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visual")
     FLinearColor GlowColor;
 };
+
+// Структура одной записи в списке выпадения
+USTRUCT(BlueprintType)
+struct FLootEntry
+{
+    GENERATED_BODY()
+
+    // Имя строки из таблицы DT_Artifacts
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FName ArtifactRowName;
+
+    // Вес (вероятность). Чем больше, тем чаще выпадает.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    float Weight = 100.0f;
+
+    // Если True, предмет выпадет максимум 1 раз за один "смертельный улов"
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    bool bIsUnique = true;
+};
+
+// Класс ассета, который мы будем создавать в редакторе (Data Asset)
+UCLASS(BlueprintType)
+class RUN_GUN_API ULootTableAsset : public UPrimaryDataAsset
+{
+    GENERATED_BODY()
+
+public:
+    // Список возможных предметов
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Loot")
+    TArray<FLootEntry> PossibleLoot;
+
+    // Общий шанс, что враг вообще хоть что-то уронит (0.0 - 1.0)
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Loot", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float GlobalDropChance = 0.3f;
+
+    // Сколько попыток выпадения сделать, если GlobalDropChance сработал
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Loot")
+    int32 MinDrops = 1;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Loot")
+    int32 MaxDrops = 2;
+};
